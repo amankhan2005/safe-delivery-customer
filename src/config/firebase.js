@@ -8,12 +8,12 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
-  apiKey:            process.env.EXPO_PUBLIC_FIREBASE_API_KEY             || '',
-  authDomain:        process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN         || '',
-  projectId:         process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID          || '',
-  storageBucket:     process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET      || '',
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId:             process.env.EXPO_PUBLIC_FIREBASE_APP_ID              || '',
+  apiKey: 'AIzaSyAAQ7saVI5BoQNtgKCv0J7nb_p76Y2Py-o',         
+  authDomain: 'safe-delivery-92c0b.firebaseapp.com',
+  projectId:'safe-delivery-92c0b',
+  storageBucket:'safe-delivery-92c0b.firebasestorage.app',
+  messagingSenderId:'499170612962',
+  appId: '1:499170612962:web:f19c9c95acae263c3c30bb'
 };
 
 let app;
