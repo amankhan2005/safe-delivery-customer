@@ -53,6 +53,11 @@ export const getOrderById   = (id)   => api.get(`/orders/${id}`);
 export const getOrderOTP    = (id)   => api.get(`/orders/${id}/otp`);
 export const cancelOrder    = (id, data) => api.post(`/orders/${id}/cancel`, data);
 
+// ─── PRICING
+export const getAdminPricing = () => api.get('/orders/pricing');
+// ─── RATINGS
+export const rateDriver = (orderId, data) => api.post(`/orders/${orderId}/rate-driver`, data);
+
 // ─── SUPPORT ─────────────────────────────────────────────────────
 export const submitInquiry  = (data) => api.post('/inquiry', data);
 

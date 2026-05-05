@@ -209,22 +209,7 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Stats row */}
-        <View style={styles.statsRow}>
-          {[
-            { label: 'Total Orders', value: user?.totalOrders ?? '0',     icon: 'cube-outline' },
-            { label: 'Delivered',    value: user?.deliveredOrders ?? '0', icon: 'checkmark-circle-outline' },
-          ].map((s, i) => (
-            <React.Fragment key={s.label}>
-              {i > 0 && <View style={styles.statDivider} />}
-              <View style={styles.statItem}>
-                <Ionicons name={s.icon} size={14} color="rgba(255,255,255,0.6)" style={{ marginBottom: 2 }} />
-                <Text style={styles.statValue}>{s.value}</Text>
-                <Text style={styles.statLabel}>{s.label}</Text>
-              </View>
-            </React.Fragment>
-          ))}
-        </View>
+       
       </LinearGradient>
 
       {/* ── Body ── */}
@@ -367,7 +352,7 @@ const styles = StyleSheet.create({
   headerCircle2: { position: 'absolute', bottom: -30, left: -40, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255,255,255,0.04)' },
   headerDot:     { position: 'absolute', top: 80, right: 80, width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.25)' },
 
-  profileRow:  { flexDirection: 'row', alignItems: 'center', gap: SIZES.lg, marginBottom: SIZES.xl },
+  profileRow:  { flexDirection: 'row', alignItems: 'center', gap: SIZES.lg, marginBottom: SIZES.md },
   avatarWrap:  { position: 'relative' },
   avatar:      { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)' },
   avatarText:  { fontSize: SIZES.fontXxl, fontWeight: FONT_WEIGHT.black, color: COLORS.white },
@@ -380,11 +365,7 @@ const styles = StyleSheet.create({
   profileEmail: { fontSize: SIZES.fontXs, color: 'rgba(255,255,255,0.7)', fontWeight: FONT_WEIGHT.medium },
   profilePhone: { fontSize: SIZES.fontXs, color: 'rgba(255,255,255,0.55)', fontWeight: FONT_WEIGHT.medium, marginTop: 2 },
 
-  statsRow:    { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.11)', borderRadius: SIZES.radiusMd, padding: SIZES.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  statItem:    { flex: 1, alignItems: 'center' },
-  statValue:   { fontSize: SIZES.fontXl, fontWeight: FONT_WEIGHT.black, color: COLORS.white },
-  statLabel:   { fontSize: SIZES.fontXs, color: 'rgba(255,255,255,0.6)', fontWeight: FONT_WEIGHT.medium, marginTop: 1, textAlign: 'center' },
-  statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.15)' },
+
 
   // Scroll
   scroll:        { flex: 1 },

@@ -26,6 +26,7 @@ import BookScreen        from '../screens/main/BookScreen';
 import TrackScreen       from '../screens/main/TrackScreen';
 import ProfileScreen     from '../screens/main/ProfileScreen';
 import OrderDetailScreen from '../screens/main/OrderDetailScreen';
+import MapPickerScreen   from '../screens/main/MapPickerScreen';
 
 const Stack = createStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -134,6 +135,7 @@ function MainStack() {
       <Stack.Screen name="Tabs"        component={TabNavigator} />
       <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
       <Stack.Screen name="Terms"       component={TermsScreen} />
+      <Stack.Screen name="MapPicker"    component={MapPickerScreen} />
     </Stack.Navigator>
   );
 }
