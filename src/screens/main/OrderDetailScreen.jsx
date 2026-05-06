@@ -37,9 +37,14 @@ const STATUS_MESSAGES = {
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-// FIX 1/2/3/4: Never use && with numbers/objects as guards.
-// Use !! or explicit null checks so falsy numerics (0, 0.0) don't render as text.
+// Never use && with numbers/objects as guards.
+// Use explicit null checks so falsy numerics (0, 0.0) don't render as text.
 const hasCoord = (val) => val != null && val !== '' && val !== false;
+
+// Safe format wrappers — guard against undefined being passed to helpers
+const safeStatus   = (status) => fmtStatus(status   ?? 'unknown');
+const safeCurrency = (fare)   => fmtCurrency(fare    ?? 0);
+const safeDateTime = (date)   => fmtDateTime(date    ?? '');
 
 // ── Searching animation ───────────────────────────────────────────────────────
 function SearchingAnimation() {
@@ -120,7 +125,7 @@ function RiderFoundBanner({ rider }) {
         <View style={RF.info}>
           <Text style={RF.label}>Rider Found!</Text>
           <Text style={RF.name}>{rider?.name || 'Your Rider'}</Text>
-          {/* FIX 5: vehicle strings — use single Text, avoid implicit concatenation outside Text */}
+          {/* Safe vehicle string — use single Text, avoid implicit concatenation outside Text */}
           <Text style={RF.vehicle}>
             {[rider?.vehicle?.color, rider?.vehicle?.model].filter(Boolean).join(' ')}
             {rider?.vehicle?.plate ? ` · ${rider.vehicle.plate}` : ''}
@@ -180,18 +185,30 @@ export default function OrderDetailScreen({ navigation, route }) {
   const load = useCallback(async () => {
     try {
       const res = await getOrderById(orderId);
-      const o = res.data.data.order;
+      const o = res?.data?.data?.order;
+
+      // Guard: if response doesn't contain an order, log and bail out gracefully
+      if (!o) {
+        console.log('ORDER DETAIL API ERROR: response missing order object', res?.data);
+        return;
+      }
+
       setOrder(o);
-      // FIX 6: driverRating could be 0 (number). Use explicit null/undefined check, not falsy check.
+
+      // driverRating could be 0 (number). Use explicit null/undefined check, not falsy check.
       if (o.status === 'delivered' && o.driverRating == null && !ratingSubmitted && !ratingShownRef.current) {
         ratingShownRef.current = true;
         setTimeout(() => setShowRatingModal(true), 1000);
       }
+
       if (o.riderId?.currentLocation?.lat != null) {
         setRiderCoords(o.riderId.currentLocation);
       }
+
       Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-    } catch {
+    } catch (e) {
+      // Detailed error log so issues are visible in Metro console
+      console.log('ORDER DETAIL API ERROR:', e?.response?.data || e?.message || e);
       Toast.show({ type: 'error', text1: 'Failed to load order' });
     } finally {
       setRefreshing(false);
@@ -201,28 +218,38 @@ export default function OrderDetailScreen({ navigation, route }) {
   useEffect(() => {
     load();
     const setup = async () => {
-      await connectSocket();
-      unsubRef.current.events = subscribeRideEvents(orderId, (event) => {
-        const msg = STATUS_MESSAGES[event];
-        if (msg) Toast.show({ type: event === 'ride:cancelled' ? 'error' : 'success', text1: msg });
-        load();
-      });
-      unsubRef.current.location = subscribeRiderLocation(orderId, ({ lat, lng }) => {
-        setRiderCoords({ lat, lng });
-        mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 800);
-      });
+      try {
+        await connectSocket();
+        unsubRef.current.events = subscribeRideEvents(orderId, (event) => {
+          const msg = STATUS_MESSAGES[event];
+          if (msg) Toast.show({ type: event === 'ride:cancelled' ? 'error' : 'success', text1: msg });
+          load();
+        });
+        unsubRef.current.location = subscribeRiderLocation(orderId, ({ lat, lng }) => {
+          if (lat == null || lng == null) return; // guard invalid coordinates
+          setRiderCoords({ lat, lng });
+          mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 800);
+        });
+      } catch (socketErr) {
+        console.log('[Socket] Setup error:', socketErr?.message || socketErr);
+      }
     };
     setup();
     const poll = setInterval(load, 15000);
-    return () => { clearInterval(poll); unsubRef.current.events?.(); unsubRef.current.location?.(); };
+    return () => {
+      clearInterval(poll);
+      try { unsubRef.current.events?.(); } catch (_) {}
+      try { unsubRef.current.location?.(); } catch (_) {}
+    };
   }, [orderId]);
 
   const fetchOTP = async () => {
     try {
       const res = await getOrderOTP(orderId);
-      setOtp(res.data.data.deliveryOTP);
+      setOtp(res?.data?.data?.deliveryOTP ?? null);
       setOtpVisible(true);
-    } catch {
+    } catch (e) {
+      console.log('OTP FETCH ERROR:', e?.response?.data || e?.message || e);
       Toast.show({ type: 'error', text1: 'Could not fetch OTP' });
     }
   };
@@ -230,18 +257,21 @@ export default function OrderDetailScreen({ navigation, route }) {
   const handleCancel = () => {
     Alert.alert('Cancel Order', 'Are you sure you want to cancel this order?', [
       { text: 'Keep Order', style: 'cancel' },
-      { text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
-        setCancelling(true);
-        try {
-          await cancelOrder(orderId, { cancellationReason: 'Customer cancelled' });
-          Toast.show({ type: 'success', text1: 'Order cancelled' });
-          load();
-        } catch (e) {
-          Toast.show({ type: 'error', text1: e.response?.data?.error || 'Failed' });
-        } finally {
-          setCancelling(false);
-        }
-      }},
+      {
+        text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
+          setCancelling(true);
+          try {
+            await cancelOrder(orderId, { cancellationReason: 'Customer cancelled' });
+            Toast.show({ type: 'success', text1: 'Order cancelled' });
+            load();
+          } catch (e) {
+            console.log('CANCEL ORDER ERROR:', e?.response?.data || e?.message || e);
+            Toast.show({ type: 'error', text1: e?.response?.data?.error || 'Failed' });
+          } finally {
+            setCancelling(false);
+          }
+        },
+      },
     ]);
   };
 
@@ -254,7 +284,8 @@ export default function OrderDetailScreen({ navigation, route }) {
       setShowRatingModal(false);
       Toast.show({ type: 'success', text1: 'Thank you for your feedback!', text2: `You rated ${stars} star${stars > 1 ? 's' : ''}` });
     } catch (e) {
-      Toast.show({ type: 'error', text1: e.response?.data?.error || 'Rating failed' });
+      console.log('RATE DRIVER ERROR:', e?.response?.data || e?.message || e);
+      Toast.show({ type: 'error', text1: e?.response?.data?.error || 'Rating failed' });
     } finally {
       setRatingLoading(false);
     }
@@ -266,7 +297,7 @@ export default function OrderDetailScreen({ navigation, route }) {
     </View>
   );
 
-  const color       = statusColor(order.status);
+  const color       = statusColor(order.status ?? 'unknown');
   const stepIndex   = STEPS.findIndex(s => s.key === order.status);
   const showOTP     = order.status === 'in_transit';
   const delivered   = order.status === 'delivered';
@@ -275,7 +306,7 @@ export default function OrderDetailScreen({ navigation, route }) {
   const isAssigned  = order.status === 'assigned';
   const canCancel   = ['searching', 'assigned'].includes(order.status) && cancelSecsLeft > 0;
 
-  // FIX 1/2/3: Use hasCoord() so lat=0 (valid!) doesn't evaluate as falsy and render "0"
+  // Use hasCoord() so lat=0 (valid!) doesn't evaluate as falsy and render "0"
   const pickupLat = order.pickup?.lat;
   const pickupLng = order.pickup?.lng;
   const dropLat   = order.drop?.lat;
@@ -299,13 +330,12 @@ export default function OrderDetailScreen({ navigation, route }) {
 
   const cancelProgress = cancelSecsLeft / 120;
 
-  // FIX 4: driverRating could be 0 — use explicit null check for "has been rated" logic
+  // driverRating could be 0 — use explicit null check for "has been rated" logic
   const hasBeenRated   = ratingSubmitted || order.driverRating != null;
   const canRate        = delivered && !hasBeenRated && order.riderId != null;
   const showRatingDone = delivered && hasBeenRated;
 
-  // FIX 7: OTP string — otp can be a number, otpVisible && otp would render "0" if otp=0
-  // Use !! otp to force boolean
+  // OTP can be a number; otpVisible && otp would render "0" if otp=0
   const showOtpDigits = otpVisible && otp != null;
 
   return (
@@ -327,10 +357,10 @@ export default function OrderDetailScreen({ navigation, route }) {
         </View>
         <View style={S.headerBody}>
           <View style={[S.statusPill, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-            <Text style={S.statusPillText}>{fmtStatus(order.status)}</Text>
+            <Text style={S.statusPillText}>{safeStatus(order.status)}</Text>
           </View>
-          <Text style={S.orderId}>#{order._id?.slice(-8).toUpperCase()}</Text>
-          <Text style={S.orderDate}>{fmtDateTime(order.createdAt)}</Text>
+          <Text style={S.orderId}>#{order._id ? String(order._id).slice(-8).toUpperCase() : 'UNKNOWN'}</Text>
+          <Text style={S.orderDate}>{safeDateTime(order.createdAt)}</Text>
         </View>
       </LinearGradient>
 
@@ -351,8 +381,7 @@ export default function OrderDetailScreen({ navigation, route }) {
         {/* Searching */}
         {isSearching ? <View style={S.card}><SearchingAnimation /></View> : null}
 
-        {/* Rider Found Banner */}
-        {/* FIX A: double && with object — use explicit boolean */}
+        {/* Rider Found Banner — explicit boolean guard */}
         {isAssigned && order.riderId != null ? (
           <RiderFoundBanner rider={order.riderId} />
         ) : null}
@@ -378,7 +407,7 @@ export default function OrderDetailScreen({ navigation, route }) {
               scrollEnabled={false}
               zoomEnabled={false}
             >
-              {/* FIX 1: use hasPickup boolean, not pickupLat directly */}
+              {/* use hasPickup boolean, not pickupLat directly */}
               {hasPickup ? (
                 <Marker coordinate={{ latitude: pickupLat, longitude: pickupLng }} title="Pickup">
                   <View style={S.markerPickup}>
@@ -387,7 +416,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                 </Marker>
               ) : null}
 
-              {/* FIX 2: use hasDrop boolean, not dropLat directly */}
+              {/* use hasDrop boolean, not dropLat directly */}
               {hasDrop ? (
                 <Marker coordinate={{ latitude: dropLat, longitude: dropLng }} title="Drop">
                   <View style={S.markerDrop}>
@@ -396,7 +425,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                 </Marker>
               ) : null}
 
-              {/* FIX E: hasRiderCoords boolean guard */}
+              {/* hasRiderCoords boolean guard */}
               {hasRiderCoords ? (
                 <Marker
                   coordinate={{ latitude: riderCoords.lat, longitude: riderCoords.lng }}
@@ -408,7 +437,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                 </Marker>
               ) : null}
 
-              {/* FIX 3: use hasRiderCoords && hasPickup booleans */}
+              {/* Polyline only when both rider + pickup coords are available */}
               {hasRiderCoords && hasPickup ? (
                 <Polyline
                   coordinates={[
@@ -433,7 +462,7 @@ export default function OrderDetailScreen({ navigation, route }) {
             </View>
             <Text style={S.otpTitle}>Delivery OTP</Text>
             <Text style={S.otpSub}>Share this code with your rider to confirm delivery</Text>
-            {/* FIX 7: showOtpDigits uses != null check, not truthy otp */}
+            {/* showOtpDigits uses != null check, not truthy otp */}
             {showOtpDigits ? (
               <View style={S.otpCodeRow}>
                 {String(otp).split('').map((d, i) => (
@@ -469,7 +498,7 @@ export default function OrderDetailScreen({ navigation, route }) {
           </LinearGradient>
         ) : null}
 
-        {/* Rate Rider — FIX G/H: use canRate / showRatingDone booleans computed above */}
+        {/* Rate Rider */}
         {canRate ? (
           <TouchableOpacity style={S.ratingTrigger} onPress={() => setShowRatingModal(true)} activeOpacity={0.85}>
             <LinearGradient colors={['#FFFBEB', '#FEF3C7']} style={S.ratingTriggerInner} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
@@ -501,7 +530,7 @@ export default function OrderDetailScreen({ navigation, route }) {
                 />
               ))}
             </View>
-            {/* FIX 8: single Text, nested Text for bold — avoid adjacent JSX text nodes */}
+            {/* Single Text, nested Text for bold — avoid adjacent JSX text nodes */}
             <Text style={S.ratingDoneText}>
               {'You rated '}
               <Text style={{ fontWeight: '800' }}>
@@ -550,8 +579,8 @@ export default function OrderDetailScreen({ navigation, route }) {
             <View style={[S.routeDot, { backgroundColor: GREEN }]} />
             <View style={S.routeInfo}>
               <Text style={S.routeTag}>PICKUP</Text>
-              <Text style={S.routeAddr}>{order.pickup?.address}</Text>
-              {/* FIX: contact info — use single Text, build string safely */}
+              <Text style={S.routeAddr}>{order.pickup?.address || 'No pickup address'}</Text>
+              {/* contact info — single Text, build string safely */}
               <Text style={S.routeContact}>
                 {[order.pickup?.contactName, order.pickup?.contactPhone].filter(Boolean).join(' · ')}
               </Text>
@@ -564,7 +593,7 @@ export default function OrderDetailScreen({ navigation, route }) {
             <View style={[S.routeDot, { backgroundColor: RED }]} />
             <View style={S.routeInfo}>
               <Text style={S.routeTag}>DROP-OFF</Text>
-              <Text style={S.routeAddr}>{order.drop?.address}</Text>
+              <Text style={S.routeAddr}>{order.drop?.address || 'No drop address'}</Text>
               <Text style={S.routeContact}>
                 {[order.drop?.contactName, order.drop?.contactPhone].filter(Boolean).join(' · ')}
               </Text>
@@ -578,11 +607,11 @@ export default function OrderDetailScreen({ navigation, route }) {
             <Text style={S.cardTitle}>Your Rider</Text>
             <View style={S.riderRow}>
               <LinearGradient colors={['#0A2F9A', BLUE]} style={S.riderAvatar}>
-                <Text style={S.riderAvatarText}>{order.riderId?.name?.charAt(0)}</Text>
+                <Text style={S.riderAvatarText}>{order.riderId?.name?.charAt(0) || '?'}</Text>
               </LinearGradient>
               <View style={S.riderInfo}>
-                <Text style={S.riderName}>{order.riderId?.name}</Text>
-                <Text style={S.riderPhone}>{order.riderId?.phone}</Text>
+                <Text style={S.riderName}>{order.riderId?.name || 'Unknown Rider'}</Text>
+                <Text style={S.riderPhone}>{order.riderId?.phone || ''}</Text>
                 {order.riderId?.vehicle?.model ? (
                   <Text style={S.riderVehicle}>
                     {[order.riderId.vehicle.color, order.riderId.vehicle.model].filter(Boolean).join(' ')}
@@ -607,31 +636,31 @@ export default function OrderDetailScreen({ navigation, route }) {
             <>
               <View style={S.payRow}>
                 <Text style={S.payLabel}>Original Fare</Text>
-                <Text style={S.payValStrike}>{fmtCurrency(order.fare + order.promoDiscount)}</Text>
+                <Text style={S.payValStrike}>{safeCurrency((order.fare ?? 0) + (order.promoDiscount ?? 0))}</Text>
               </View>
               <View style={S.payRow}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <Ionicons name="pricetag-outline" size={13} color={GREEN} />
-                  {/* FIX: promo label — string interpolation inside Text */}
+                  {/* promo label — string interpolation inside Text */}
                   <Text style={[S.payLabel, { color: GREEN }]}>
                     {`Promo${order.promoCode ? ` (${order.promoCode})` : ' Discount'}`}
                   </Text>
                 </View>
-                {/* FIX 9: no bare "-" string — wrap entirely in Text */}
+                {/* No bare "-" string — wrap entirely in Text */}
                 <Text style={[S.payVal, { color: GREEN }]}>
-                  {`-${fmtCurrency(order.promoDiscount)}`}
+                  {`-${safeCurrency(order.promoDiscount)}`}
                 </Text>
               </View>
               <View style={S.payDivider} />
               <View style={S.payRow}>
                 <Text style={[S.payLabel, { fontWeight: FONT_WEIGHT.black, color: '#111827' }]}>You Pay</Text>
-                <Text style={[S.payVal, { color: BLUE }]}>{fmtCurrency(order.fare)}</Text>
+                <Text style={[S.payVal, { color: BLUE }]}>{safeCurrency(order.fare)}</Text>
               </View>
             </>
           ) : (
             <View style={S.payRow}>
               <Text style={S.payLabel}>Total Fare</Text>
-              <Text style={[S.payVal, { color: BLUE }]}>{fmtCurrency(order.fare)}</Text>
+              <Text style={[S.payVal, { color: BLUE }]}>{safeCurrency(order.fare)}</Text>
             </View>
           )}
           <View style={S.codBadge}>
@@ -640,8 +669,7 @@ export default function OrderDetailScreen({ navigation, route }) {
             </View>
             <View>
               <Text style={S.codTitle}>Cash on Delivery</Text>
-              {/* FIX: template literal inside Text — already correct, just confirming */}
-              <Text style={S.codSub}>{`Pay ${fmtCurrency(order.fare)} when your parcel arrives`}</Text>
+              <Text style={S.codSub}>{`Pay ${safeCurrency(order.fare)} when your parcel arrives`}</Text>
             </View>
           </View>
         </View>
@@ -656,7 +684,6 @@ export default function OrderDetailScreen({ navigation, route }) {
                   <Text style={S.cancelCardSub}>You can cancel within the window below</Text>
                 </View>
                 <View style={S.cancelTimerBadge}>
-                  {/* FIX: number rendered as text — wrap in Text */}
                   <Text style={S.cancelTimerNum}>{cancelSecsLeft}s</Text>
                   <Text style={S.cancelTimerLabel}>left</Text>
                 </View>
@@ -727,7 +754,7 @@ export default function OrderDetailScreen({ navigation, route }) {
               </View>
 
               <Text style={S.modalTitle}>How was your delivery?</Text>
-              {/* FIX 8: adjacent JSX text nodes — use nested <Text> instead */}
+              {/* Adjacent JSX text nodes — use nested <Text> instead */}
               <Text style={S.modalSub}>
                 {'Rate your experience with '}
                 <Text style={{ fontWeight: '800', color: '#111827' }}>

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "499170612962",
+    "project_id": "safe-delivery-92c0b",
+    "storage_bucket": "safe-delivery-92c0b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:499170612962:android:e3b4261d57438c0b3c30bb",
+        "android_client_info": {
+          "package_name": "com.safedelivery.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQB3SHnZK7cBq4iX13bVLbFYDY0851-84"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

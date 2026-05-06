@@ -140,7 +140,7 @@ function MainStack() {
   );
 }
 
-export default function AppNavigator() {
+export default function AppNavigator({ onReady }) {
   const { token, loading, init } = useAuthStore();
   useEffect(() => { init(); }, []);
 
@@ -153,7 +153,7 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer onReady={onReady}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!token
           ? <Stack.Screen name="Auth" component={AuthStack} />
