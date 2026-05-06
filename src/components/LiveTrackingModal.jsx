@@ -116,7 +116,7 @@ export default function LiveTrackingModal({ orderId, visible, onClose, onDeliver
 
   // ── Cancel countdown ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!order?.createdAt || !['searching','assigned'].includes(order.status)) return;
+    if (!order?.createdAt || !['searching','assigned'].includes(order?.status)) return;
     const created = new Date(order.createdAt).getTime();
     const tick = () => setCancelSecs(Math.max(120 - Math.floor((Date.now() - created) / 1000), 0));
     tick();
@@ -307,18 +307,18 @@ export default function LiveTrackingModal({ orderId, visible, onClose, onDeliver
               {order?.riderId && status !== 'searching' && (
                 <View style={S.riderRow}>
                   <LinearGradient colors={['#0A2F9A', BLUE]} style={S.riderAvatar}>
-                    <Text style={S.riderAvatarText}>{order.riderId.name?.charAt(0)}</Text>
+                    <Text style={S.riderAvatarText}>{order?.riderId.name?.charAt(0)}</Text>
                   </LinearGradient>
                   <View style={S.riderInfo}>
-                    <Text style={S.riderName}>{order.riderId.name}</Text>
+                    <Text style={S.riderName}>{order?.riderId.name}</Text>
                     <Text style={S.riderVehicle}>
-                      {order.riderId.vehicle?.color} {order.riderId.vehicle?.model} · {order.riderId.vehicle?.plate}
+                      {order?.riderId.vehicle?.color} {order?.riderId.vehicle?.model} · {order?.riderId.vehicle?.plate}
                     </Text>
                   </View>
-                  {order.riderId.rating > 0 && (
+                  {order?.riderId.rating > 0 && (
                     <View style={S.ratingBadge}>
                       <Ionicons name="star" size={12} color={AMBER} />
-                      <Text style={S.ratingText}>{order.riderId.rating.toFixed(1)}</Text>
+                      <Text style={S.ratingText}>{order?.riderId.rating.toFixed(1)}</Text>
                     </View>
                   )}
                 </View>

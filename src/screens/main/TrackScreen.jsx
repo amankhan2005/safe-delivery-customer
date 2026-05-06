@@ -421,7 +421,8 @@ export default function TrackScreen({ navigation }) {
     if (!id) return;
     try {
       const res = await getOrderById(id);
-      const o = res.data.data.order;
+      const o = res?.data?.data?.order;
+      if (!o) return; // guard null/304 response
       setOrder(o);
       setLastUpdate(new Date());
       setSecsAgo(0);
@@ -463,7 +464,8 @@ export default function TrackScreen({ navigation }) {
     setTimelineOpen(false);
     try {
       const res = await getOrderById(id);
-      const o = res.data.data.order;
+      const o = res?.data?.data?.order;
+      if (!o) return; // guard null/304 response
       setOrder(o);
       setLastUpdate(new Date());
       setSecsAgo(0);
@@ -758,12 +760,9 @@ export default function TrackScreen({ navigation }) {
                 <Text style={S.fareLabel}>Total Fare</Text>
                 <Text style={[S.fareValue, { color: isCancelled ? C.textGhost : C.blue }]}>
                   {isCancelled
-                    ? <Text style={{ textDecorationLine: 'line-through' }}>${order.fare}</Text>
-                    : `$${order.fare}`
+                    ? String(`$${order.fare ?? 0}`)
+                    : `$${order.fare ?? 0}`
                   }
-                  {order.promoDiscount > 0 && !isCancelled && (
-                    <Text style={S.promoSaved}> (saved ${order.promoDiscount})</Text>
-                  )}
                 </Text>
               </View>
               {isCancelled && (
@@ -771,7 +770,7 @@ export default function TrackScreen({ navigation }) {
                   <View style={S.fareDivider} />
                   <View style={S.fareRow}>
                     <Text style={S.fareLabel}>Refund</Text>
-                    <Text style={[S.fareValue, { color: C.green }]}>${order.fare}</Text>
+                    <Text style={[S.fareValue, { color: C.green }]}>{`$${order?.fare ?? 0}`}</Text>
                   </View>
                 </>
               )}
@@ -961,7 +960,7 @@ const S = StyleSheet.create({
   fareRow:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   fareDivider: { height: 1, backgroundColor: C.borderFaint, marginVertical: 10 },
   fareLabel:   { fontSize: 13.5, color: C.textMuted, fontWeight: '600' },
-  fareValue:   { fontSize: 15.5, fontWeight: '900' },
+  fareValue:   { fontSize: 15.5, fontWeight: '900' }, // safe
   promoSaved:  { fontSize: 12, color: C.green, fontWeight: '600' },
   codPill:     {
     flexDirection: 'row', alignItems: 'center', gap: 5,

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Safe Delivery",
     "slug": "safe-delivery-customer",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -47,14 +47,15 @@
       ],
       "expo-font",
       "expo-secure-store",
+      "expo-splash-screen",
       [
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
             "minSdkVersion": 24,
-            "kotlinVersion": "1.9.24"
+            "kotlinVersion": "2.1.21"
           }
         }
       ]

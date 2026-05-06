@@ -7,19 +7,25 @@ const useAuthStore = create((set, get) => ({
   user:    null,
   loading: true,
 
-  // Called on app start — restore session
+  // Called on app start — restore session with retry
   init: async () => {
     try {
       const token = await AsyncStorage.getItem('sd_customer_token');
       if (token) {
         set({ token });
-        const res = await getMe();
-        set({ user: res.data.data.user, loading: false });
+        try {
+          const res = await getMe(); // already has retry built in
+          set({ user: res.data.data.user, loading: false });
+        } catch {
+          // Token exists but /me failed — clear and show auth
+          await AsyncStorage.removeItem('sd_customer_token');
+          set({ token: null, user: null, loading: false });
+        }
       } else {
         set({ loading: false });
       }
     } catch {
-      await AsyncStorage.removeItem('sd_customer_token');
+      await AsyncStorage.removeItem('sd_customer_token').catch(() => {});
       set({ token: null, user: null, loading: false });
     }
   },
@@ -32,7 +38,7 @@ const useAuthStore = create((set, get) => ({
   setUser: (user) => set({ user }),
 
   logout: async () => {
-    await AsyncStorage.removeItem('sd_customer_token');
+    await AsyncStorage.removeItem('sd_customer_token').catch(() => {});
     set({ token: null, user: null });
   },
 }));
