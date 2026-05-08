@@ -16,8 +16,14 @@ export const detectLocation = (body = {}) =>
  * Get autocomplete suggestions restricted to a country.
  * params: { q: string, country: 'LIBERIA' | 'INDIA' }
  */
-export const getLocationSuggestions = (q, country) =>
-  api.get('/location/suggestions', { params: { q, country } });
+export const getLocationSuggestions = (q, country, lat = null, lng = null) =>
+  api.get('/location/suggestions', {
+    params: {
+      q,
+      country,
+      ...(lat != null && lng != null ? { lat, lng } : {}),
+    },
+  });
 
 /**
  * Resolve a Google Place ID to { lat, lng, address }.

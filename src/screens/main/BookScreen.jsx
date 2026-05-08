@@ -11,6 +11,7 @@ import Button from '../../components/Button';
 import Input from '../../components/Input';
 import { calculateFare, createOrder, getAdminPricing } from '../../api';
 import { getLocationSuggestions, getPlaceDetails } from '../../api/locationApi';
+import useLocation from '../../hooks/useLocation';
 import useAuthStore from '../../store/authStore';
 import useCountry from '../../hooks/useCountry';
 import { fmtCurrency } from '../../utils/helpers';
@@ -38,6 +39,7 @@ const WEIGHT_MAP = { doc: '<1lb', small: '1-5lb', large: '5-10lb', frag: '<1lb' 
 export default function BookScreen({ navigation }) {
   const user = useAuthStore((s) => s.user);
   const { countryKey, countryConfig } = useCountry();
+  const { location: userLocation } = useLocation(); // current GPS coords for search bias
 
   const [step,       setStep]       = useState(1);
   const [parcelType, setParcelType] = useState('small');
@@ -162,7 +164,12 @@ export default function BookScreen({ navigation }) {
       pickupDebounce.current = setTimeout(async () => {
         setPickupSearching(true);
         try {
-          const res = await getLocationSuggestions(text.trim(), countryKey);
+          const res = await getLocationSuggestions(
+            text.trim(),
+            countryKey,
+            userLocation?.lat ?? null,
+            userLocation?.lng ?? null,
+          );
           setPickupSuggestions(res?.data?.data?.suggestions || []);
         } catch (_) { setPickupSuggestions([]); }
         finally { setPickupSearching(false); }
@@ -175,7 +182,12 @@ export default function BookScreen({ navigation }) {
       dropDebounce.current = setTimeout(async () => {
         setDropSearching(true);
         try {
-          const res = await getLocationSuggestions(text.trim(), countryKey);
+          const res = await getLocationSuggestions(
+            text.trim(),
+            countryKey,
+            userLocation?.lat ?? null,
+            userLocation?.lng ?? null,
+          );
           setDropSuggestions(res?.data?.data?.suggestions || []);
         } catch (_) { setDropSuggestions([]); }
         finally { setDropSearching(false); }
@@ -188,21 +200,21 @@ export default function BookScreen({ navigation }) {
     if (mode === 'pickup') {
       setPickupSuggestions([]);
       setPickupFocused(false);
-      setForm(f => ({ ...f, pickupAddress: item.description || item.mainText }));
+      setForm(f => ({ ...f, pickupAddress: item.mainText || item.description || '' }));
     } else {
       setDropSuggestions([]);
       setDropFocused(false);
-      setForm(f => ({ ...f, dropAddress: item.description || item.mainText }));
+      setForm(f => ({ ...f, dropAddress: item.mainText || item.description || '' }));
     }
     try {
-      const res = await getPlaceDetails(item.placeId);
+      const res = await getPlaceDetails(item.placeId || item.place_id);
       const { lat, lng, address } = res.data.data;
       if (mode === 'pickup') {
         setPickupCoords({ lat, lng });
-        setForm(f => ({ ...f, pickupAddress: address || item.description || item.mainText }));
+        setForm(f => ({ ...f, pickupAddress: address || item.mainText || item.description || '' }));
       } else {
         setDropCoords({ lat, lng });
-        setForm(f => ({ ...f, dropAddress: address || item.description || item.mainText }));
+        setForm(f => ({ ...f, dropAddress: address || item.mainText || item.description || '' }));
       }
     } catch (_) {}
   };
@@ -410,7 +422,7 @@ export default function BookScreen({ navigation }) {
                       <View style={S.suggestBox}>
                         {pickupSuggestions.map(item => (
                           <TouchableOpacity
-                            key={item.placeId}
+                            key={item.placeId || item.place_id || String(Math.random())}
                             style={S.suggestRow}
                             onPress={() => selectSuggestion('pickup', item)}
                             activeOpacity={0.7}
@@ -463,7 +475,7 @@ export default function BookScreen({ navigation }) {
                       <View style={S.suggestBox}>
                         {dropSuggestions.map(item => (
                           <TouchableOpacity
-                            key={item.placeId}
+                            key={item.placeId || item.place_id || String(Math.random())}
                             style={S.suggestRow}
                             onPress={() => selectSuggestion('drop', item)}
                             activeOpacity={0.7}

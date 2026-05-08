@@ -1,4 +1,13 @@
-import React, { useEffect } from 'react';
+/**
+ * navigation/index.jsx — PRODUCTION-SAFE
+ *
+ * FIXES:
+ * 1. NavigationContainer wrapped in try/catch error boundary via ErrorBoundary.
+ * 2. Tab route lookup guarded — state.routes.find() can return undefined if
+ *    a route hasn't mounted yet (causes crash on rapid navigation).
+ * 3. All navigation.navigate() calls inside tab bar wrapped in try/catch.
+ */
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -7,7 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import useAuthStore from '../store/authStore';
 import { COLORS, SIZES, SHADOWS, FONT_WEIGHT } from '../theme';
 
-// Auth
 import OnboardingScreen  from '../screens/auth/OnboardingScreen';
 import LoginScreen       from '../screens/auth/LoginScreen';
 import SignupScreen      from '../screens/auth/SignupScreen';
@@ -15,11 +23,7 @@ import VerifyPhoneOTP    from '../screens/auth/VerifyPhoneOTPScreen';
 import VerifyEmailOTP    from '../screens/auth/VerifyEmailOTPScreen';
 import ForgotPassword    from '../screens/auth/ForgotPasswordScreen';
 import ResetPassword     from '../screens/auth/ResetPasswordScreen';
-
-// Terms
 import TermsScreen       from '../screens/TermsScreen';
-
-// Main
 import HomeScreen        from '../screens/main/HomeScreen';
 import OrdersScreen      from '../screens/main/OrdersScreen';
 import BookScreen        from '../screens/main/BookScreen';
@@ -31,23 +35,56 @@ import MapPickerScreen   from '../screens/main/MapPickerScreen';
 const Stack = createStackNavigator();
 const Tab   = createBottomTabNavigator();
 
-// Custom Tab Bar
+// ─── Error Boundary — prevents navigation errors from killing the whole app ──
+class NavErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error) {
+    // Log but never rethrow — keep app alive
+    try { console.warn('[NavErrorBoundary]', error?.message); } catch (_) {}
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4F6FB', padding: 32 }}>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827', marginBottom: 8 }}>Something went wrong</Text>
+          <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24 }}>
+            Please restart the app. Your data is safe.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: COLORS.primary, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12 }}
+            onPress={() => this.setState({ hasError: false })}
+          >
+            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function CustomTabBar({ state, descriptors, navigation }) {
   const tabs = [
-    { name: 'Home',    icon: 'home',        iconOut: 'home-outline' },
-    { name: 'Orders',  icon: 'list',        iconOut: 'list-outline' },
-    { name: 'Book',    icon: 'add',         iconOut: 'add', isCenter: true },
-    { name: 'Track',   icon: 'navigate',    iconOut: 'navigate-outline' },
-    { name: 'Profile', icon: 'person',      iconOut: 'person-outline' },
+    { name: 'Home',    icon: 'home',      iconOut: 'home-outline' },
+    { name: 'Orders',  icon: 'list',      iconOut: 'list-outline' },
+    { name: 'Book',    icon: 'add',       iconOut: 'add', isCenter: true },
+    { name: 'Track',   icon: 'navigate',  iconOut: 'navigate-outline' },
+    { name: 'Profile', icon: 'person',    iconOut: 'person-outline' },
   ];
 
   return (
     <View style={tab.bar}>
       {tabs.map((t, i) => {
-        const route    = state.routes.find(r => r.name === t.name);
+        // Safe route lookup — find() can return undefined
+        const route   = state.routes.find(r => r.name === t.name);
+        if (!route) return null;
         const focused  = state.index === state.routes.indexOf(route);
         const onPress  = () => {
-          if (route) navigation.navigate(t.name);
+          try { navigation.navigate(t.name); } catch (_) {}
         };
 
         if (t.isCenter) {
@@ -63,11 +100,7 @@ function CustomTabBar({ state, descriptors, navigation }) {
 
         return (
           <TouchableOpacity key={t.name} onPress={onPress} style={tab.item} activeOpacity={0.75}>
-            <Ionicons
-              name={focused ? t.icon : t.iconOut}
-              size={22}
-              color={focused ? COLORS.primary : COLORS.gray400}
-            />
+            <Ionicons name={focused ? t.icon : t.iconOut} size={22} color={focused ? COLORS.primary : COLORS.gray400} />
             <Text style={[tab.label, focused && tab.labelActive]}>{t.name}</Text>
           </TouchableOpacity>
         );
@@ -77,28 +110,12 @@ function CustomTabBar({ state, descriptors, navigation }) {
 }
 
 const tab = StyleSheet.create({
-  bar: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-    paddingTop: 10,
-    paddingHorizontal: SIZES.lg,
-    alignItems: 'flex-end',
-    ...SHADOWS.md,
-  },
+  bar:         { flexDirection: 'row', backgroundColor: COLORS.white, borderTopWidth: 1, borderTopColor: COLORS.border, paddingBottom: Platform.OS === 'ios' ? 24 : 10, paddingTop: 10, paddingHorizontal: SIZES.lg, alignItems: 'flex-end', ...SHADOWS.md },
   item:        { flex: 1, alignItems: 'center', gap: 3 },
   label:       { fontSize: 10, fontWeight: FONT_WEIGHT.semibold, color: COLORS.gray400 },
   labelActive: { color: COLORS.primary },
   centerWrap:  { flex: 1, alignItems: 'center', marginTop: -28 },
-  centerBtn: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: COLORS.white,
-    ...SHADOWS.blue,
-  },
+  centerBtn:   { width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: COLORS.white, ...SHADOWS.blue },
   centerLabel: { fontSize: 10, fontWeight: FONT_WEIGHT.semibold, color: COLORS.gray400, marginTop: 3 },
 });
 
@@ -135,14 +152,14 @@ function MainStack() {
       <Stack.Screen name="Tabs"        component={TabNavigator} />
       <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
       <Stack.Screen name="Terms"       component={TermsScreen} />
-      <Stack.Screen name="MapPicker"    component={MapPickerScreen} />
+      <Stack.Screen name="MapPicker"   component={MapPickerScreen} />
     </Stack.Navigator>
   );
 }
 
 export default function AppNavigator({ onReady }) {
   const { token, loading, init } = useAuthStore();
-  useEffect(() => { init(); }, []);
+  React.useEffect(() => { init(); }, []);
 
   if (loading) {
     return (
@@ -153,13 +170,15 @@ export default function AppNavigator({ onReady }) {
   }
 
   return (
-    <NavigationContainer onReady={onReady}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!token
-          ? <Stack.Screen name="Auth" component={AuthStack} />
-          : <Stack.Screen name="Main" component={MainStack} />
-        }
-      </Stack.Navigator>
-    </NavigationContainer>
+    <NavErrorBoundary>
+      <NavigationContainer onReady={onReady}>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {!token
+            ? <Stack.Screen name="Auth" component={AuthStack} />
+            : <Stack.Screen name="Main" component={MainStack} />
+          }
+        </Stack.Navigator>
+      </NavigationContainer>
+    </NavErrorBoundary>
   );
 }

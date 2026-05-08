@@ -815,6 +815,11 @@ export default function TrackScreen({ navigation }) {
                 activeOpacity={0.84}
                 accessibilityRole="button"
                 accessibilityLabel="Place new order"
+                onPress={() => {
+                  handleClear();
+                  try { navigation.getParent()?.navigate('Book'); } catch {}
+                  try { navigation.navigate('Book'); } catch {}
+                }}
               >
                 <LinearGradient
                   colors={['#7F1D1D', C.red]}

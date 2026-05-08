@@ -6,48 +6,78 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "jsEngine": "hermes",
+
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#1B4FD8"
     },
+
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.safedelivery.customer",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Safe Delivery needs your location to find nearby riders and calculate delivery routes.",
         "NSLocationAlwaysUsageDescription": "Safe Delivery uses location for delivery tracking."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyBLAJ-BgJKr7h7t0Ywgf2fd4gSJ7VyxVF0"
       }
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1B4FD8"
       },
+
       "package": "com.safedelivery.customer",
+
       "googleServicesFile": "./google-services.json",
+
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
       ],
+
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBLAJ-BgJKr7h7t0Ywgf2fd4gSJ7VyxVF0"
+        }
+      },
+
       "allowBackup": false,
       "softwareKeyboardLayoutMode": "pan"
     },
+
     "web": {
       "favicon": "./assets/favicon.png"
     },
+
     "plugins": [
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Safe Delivery to use your location to find riders and calculate routes."
+          "locationWhenInUsePermission": "Allow Safe Delivery to use your location to find riders and calculate routes.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Safe Delivery to use your location in the background for live delivery tracking.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
+
       "expo-font",
       "expo-secure-store",
       "expo-splash-screen",
+
       [
         "expo-build-properties",
         {
@@ -55,16 +85,21 @@
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
             "minSdkVersion": 24,
-            "kotlinVersion": "2.1.21"
+            "kotlinVersion": "2.1.21",
+            "enableEdgeToEdge": false,
+            "enableProguardInReleaseBuilds": false,
+            "useLegacyPackaging": false
           }
         }
       ]
     ],
+
     "extra": {
       "eas": {
         "projectId": "f2e13922-554e-4a3d-ac17-ef52528a19f9"
       }
     },
+
     "owner": "safedelivery"
   }
 }

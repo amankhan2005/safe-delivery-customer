@@ -131,7 +131,7 @@ export default function SignupScreen({ navigation }) {
           <View style={styles.infoBox}>
             <Ionicons name="information-circle-outline" size={15} color={COLORS.primary} />
             <Text style={styles.infoText}>
-              After signup, verify via <Text style={{ fontWeight: '700' }}>Firebase phone OTP</Text> or <Text style={{ fontWeight: '700' }}>email OTP</Text>. Account is created only after verification.
+              After signup, verify via <Text style={{ fontWeight: '700' }}>SMS OTP (Twilio)</Text> or <Text style={{ fontWeight: '700' }}>email OTP</Text>. Account is created only after verification.
             </Text>
           </View>
 

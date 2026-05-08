@@ -2,13 +2,13 @@ import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, StatusBar, Platform,
-  Modal, Animated,
+  Modal, Animated, TextInput, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import useAuthStore from '../../store/authStore';
-import { changePassword, submitInquiry } from '../../api';
+import { changePassword, submitInquiry, deleteAccount } from '../../api';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import { COLORS, SIZES, SHADOWS, FONT_WEIGHT } from '../../theme';
@@ -34,7 +34,7 @@ const MenuItem = ({ icon, label, sublabel, onPress, danger, color = COLORS.prima
       <Text style={[styles.menuLabel, danger && { color: COLORS.red }]}>{label}</Text>
       {sublabel && <Text style={styles.menuSublabel}>{sublabel}</Text>}
     </View>
-    <Ionicons name="chevron-forward" size={14} color={COLORS.gray300} />
+    <Ionicons name="chevron-forward" size={14} color={danger ? COLORS.red + '60' : COLORS.gray300} />
   </TouchableOpacity>
 );
 
@@ -86,12 +86,8 @@ function SignOutModal({ visible, onCancel, onConfirm }) {
       <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
         <Animated.View style={[styles.modalCard, { transform: [{ scale: scaleAnim }] }]}>
 
-          {/* Icon */}
           <View style={styles.modalIconWrap}>
-            <LinearGradient
-              colors={['#FEE8E9', '#FECDD3']}
-              style={styles.modalIconGradient}
-            >
+            <LinearGradient colors={['#FEE8E9', '#FECDD3']} style={styles.modalIconGradient}>
               <Ionicons name="log-out-outline" size={28} color={COLORS.red} />
             </LinearGradient>
           </View>
@@ -101,12 +97,10 @@ function SignOutModal({ visible, onCancel, onConfirm }) {
             You'll be signed out of your Safe Delivery account. Your data stays safe and synced.
           </Text>
 
-          {/* Buttons */}
           <View style={styles.modalBtnRow}>
             <TouchableOpacity style={styles.modalCancelBtn} onPress={onCancel} activeOpacity={0.8}>
               <Text style={styles.modalCancelText}>Cancel</Text>
             </TouchableOpacity>
-
             <TouchableOpacity onPress={onConfirm} activeOpacity={0.85} style={styles.modalConfirmWrap}>
               <LinearGradient
                 colors={['#E8212B', '#C81B24']}
@@ -125,16 +119,121 @@ function SignOutModal({ visible, onCancel, onConfirm }) {
   );
 }
 
+// ── Delete Account Modal ─────────────────────────────────────
+
+function DeleteAccountModal({ visible, onCancel, onConfirm, loading }) {
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
+
+  React.useEffect(() => {
+    if (visible) {
+      setPassword('');
+      setShowPass(false);
+      Animated.parallel([
+        Animated.spring(scaleAnim, { toValue: 1, tension: 70, friction: 8, useNativeDriver: true }),
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]).start();
+    } else {
+      scaleAnim.setValue(0.85);
+      fadeAnim.setValue(0);
+    }
+  }, [visible]);
+
+  return (
+    <Modal transparent visible={visible} animationType="none" statusBarTranslucent>
+      <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.modalCard, { transform: [{ scale: scaleAnim }] }]}>
+
+          {/* Icon */}
+          <View style={styles.modalIconWrap}>
+            <LinearGradient colors={['#FEE8E9', '#FECDD3']} style={styles.modalIconGradient}>
+              <Ionicons name="trash-outline" size={28} color={COLORS.red} />
+            </LinearGradient>
+          </View>
+
+          <Text style={styles.modalTitle}>Delete Account?</Text>
+          <Text style={styles.modalBody}>
+            This is permanent and cannot be undone. All your orders, data, and history will be erased forever.
+          </Text>
+
+          {/* Warning strip */}
+          <View style={styles.deleteWarningStrip}>
+            <Ionicons name="warning-outline" size={14} color="#B45309" />
+            <Text style={styles.deleteWarningText}>This action cannot be reversed</Text>
+          </View>
+
+          {/* Password field */}
+          <View style={styles.deletePassWrap}>
+            <Ionicons name="lock-closed-outline" size={16} color={COLORS.gray400} style={{ marginLeft: 12 }} />
+            <TextInput
+              style={styles.deletePassInput}
+              placeholder="Enter your password to confirm"
+              placeholderTextColor={COLORS.gray400}
+              secureTextEntry={!showPass}
+              value={password}
+              onChangeText={setPassword}
+              editable={!loading}
+            />
+            <TouchableOpacity onPress={() => setShowPass(v => !v)} style={{ paddingRight: 12 }}>
+              <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={16} color={COLORS.gray400} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Buttons */}
+          <View style={styles.modalBtnRow}>
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={onCancel}
+              activeOpacity={0.8}
+              disabled={loading}
+            >
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => onConfirm(password)}
+              activeOpacity={0.85}
+              style={[styles.modalConfirmWrap, { opacity: loading ? 0.75 : 1 }]}
+              disabled={loading}
+            >
+              <LinearGradient
+                colors={['#E8212B', '#C81B24']}
+                style={styles.modalConfirmBtn}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              >
+                {loading
+                  ? <ActivityIndicator size="small" color={COLORS.white} />
+                  : (
+                    <>
+                      <Ionicons name="trash-outline" size={16} color={COLORS.white} />
+                      <Text style={styles.modalConfirmText}>Delete</Text>
+                    </>
+                  )
+                }
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
 // ── Main Screen ──────────────────────────────────────────────
 
 export default function ProfileScreen({ navigation }) {
   const { user, logout } = useAuthStore();
-  const [panel,       setPanel]       = useState(null);
-  const [passForm,    setPassForm]    = useState({ old: '', newP: '', confirm: '' });
-  const [message,     setMessage]     = useState('');
-  const [loading,     setLoading]     = useState(false);
-  const [openFaq,     setOpenFaq]     = useState(null);
-  const [signOutModal, setSignOutModal] = useState(false);
+  const [panel,          setPanel]          = useState(null);
+  const [passForm,       setPassForm]       = useState({ old: '', newP: '', confirm: '' });
+  const [message,        setMessage]        = useState('');
+  const [loading,        setLoading]        = useState(false);
+  const [openFaq,        setOpenFaq]        = useState(null);
+  const [signOutModal,   setSignOutModal]   = useState(false);
+  const [deleteModal,    setDeleteModal]    = useState(false);
+  const [deleteLoading,  setDeleteLoading]  = useState(false);
 
   const togglePanel = (p) => setPanel(v => v === p ? null : p);
   const setP = (k) => (v) => setPassForm(f => ({ ...f, [k]: v }));
@@ -169,6 +268,24 @@ export default function ProfileScreen({ navigation }) {
     finally { setLoading(false); }
   };
 
+  const handleDeleteAccount = async (password) => {
+    if (!password.trim()) {
+      return Toast.show({ type: 'error', text1: 'Password is required' });
+    }
+    setDeleteLoading(true);
+    try {
+      await deleteAccount({ password });
+      setDeleteModal(false);
+      Toast.show({ type: 'success', text1: 'Account deleted', text2: 'Your account has been removed.' });
+      // small delay so toast is visible before logout
+      setTimeout(() => logout(), 1200);
+    } catch (e) {
+      Toast.show({ type: 'error', text1: e.response?.data?.error || 'Failed to delete account' });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const initials = user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
   return (
@@ -185,7 +302,6 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.headerCircle2} />
         <View style={styles.headerDot} />
 
-        {/* Avatar + Info */}
         <View style={styles.profileRow}>
           <View style={styles.avatarWrap}>
             <LinearGradient
@@ -194,7 +310,6 @@ export default function ProfileScreen({ navigation }) {
             >
               <Text style={styles.avatarText}>{initials}</Text>
             </LinearGradient>
-            {/* Online dot */}
             <View style={styles.onlineDot} />
           </View>
 
@@ -208,8 +323,6 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.profilePhone}>{user?.phone}</Text>
           </View>
         </View>
-
-       
       </LinearGradient>
 
       {/* ── Body ── */}
@@ -219,6 +332,7 @@ export default function ProfileScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
 
+        {/* Account Section */}
         <Section title="Account">
           <MenuItem
             icon="lock-closed-outline"
@@ -250,6 +364,7 @@ export default function ProfileScreen({ navigation }) {
           </View>
         )}
 
+        {/* Support Section */}
         <Section title="Support">
           <MenuItem icon="help-circle-outline"      label="Contact Support"    sublabel="Get help from our team"          onPress={() => togglePanel('support')} color={COLORS.green} />
           <MenuItem icon="document-text-outline"    label="FAQ"                sublabel="Frequently asked questions"      onPress={() => togglePanel('faq')}     color={COLORS.green} />
@@ -305,6 +420,18 @@ export default function ProfileScreen({ navigation }) {
           </View>
         )}
 
+        {/* Danger Zone */}
+        <Section title="Danger Zone">
+          <MenuItem
+            icon="trash-outline"
+            label="Delete Account"
+            sublabel="Permanently remove your account"
+            onPress={() => setDeleteModal(true)}
+            danger
+            last
+          />
+        </Section>
+
         {/* Sign Out */}
         <Section title="">
           <TouchableOpacity
@@ -333,6 +460,14 @@ export default function ProfileScreen({ navigation }) {
         visible={signOutModal}
         onCancel={() => setSignOutModal(false)}
         onConfirm={() => { setSignOutModal(false); logout(); }}
+      />
+
+      {/* ── Delete Account Modal ── */}
+      <DeleteAccountModal
+        visible={deleteModal}
+        onCancel={() => { if (!deleteLoading) setDeleteModal(false); }}
+        onConfirm={handleDeleteAccount}
+        loading={deleteLoading}
       />
     </View>
   );
@@ -364,8 +499,6 @@ const styles = StyleSheet.create({
   verifiedText: { fontSize: SIZES.fontXs, color: '#4ADE80', fontWeight: FONT_WEIGHT.bold },
   profileEmail: { fontSize: SIZES.fontXs, color: 'rgba(255,255,255,0.7)', fontWeight: FONT_WEIGHT.medium },
   profilePhone: { fontSize: SIZES.fontXs, color: 'rgba(255,255,255,0.55)', fontWeight: FONT_WEIGHT.medium, marginTop: 2 },
-
-
 
   // Scroll
   scroll:        { flex: 1 },
@@ -418,7 +551,7 @@ const styles = StyleSheet.create({
   versionDot:  { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.gray200 },
   version:     { fontSize: SIZES.fontXs, color: COLORS.gray400, fontWeight: FONT_WEIGHT.medium },
 
-  // Modal
+  // Modal shared
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
@@ -437,13 +570,12 @@ const styles = StyleSheet.create({
   modalIconGradient: { width: 70, height: 70, borderRadius: 35, alignItems: 'center', justifyContent: 'center' },
   modalTitle: {
     fontSize: SIZES.fontXxl, fontWeight: FONT_WEIGHT.black,
-    color: COLORS.gray900, marginBottom: SIZES.sm,
-    letterSpacing: -0.3,
+    color: COLORS.gray900, marginBottom: SIZES.sm, letterSpacing: -0.3,
   },
   modalBody: {
     fontSize: SIZES.fontSm, color: COLORS.gray400,
     textAlign: 'center', lineHeight: 20,
-    fontWeight: FONT_WEIGHT.medium, marginBottom: SIZES.xxl,
+    fontWeight: FONT_WEIGHT.medium, marginBottom: SIZES.lg,
   },
   modalBtnRow: { flexDirection: 'row', gap: SIZES.md, width: '100%' },
   modalCancelBtn: {
@@ -452,17 +584,35 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.gray100,
     alignItems: 'center', justifyContent: 'center',
   },
-  modalCancelText: {
-    fontSize: SIZES.fontMd, color: COLORS.gray700,
-    fontWeight: FONT_WEIGHT.bold,
-  },
+  modalCancelText: { fontSize: SIZES.fontMd, color: COLORS.gray700, fontWeight: FONT_WEIGHT.bold },
   modalConfirmWrap: { flex: 1, borderRadius: SIZES.radiusMd, overflow: 'hidden' },
   modalConfirmBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: SIZES.sm, paddingVertical: 14,
   },
-  modalConfirmText: {
-    fontSize: SIZES.fontMd, color: COLORS.white,
-    fontWeight: FONT_WEIGHT.bold,
+  modalConfirmText: { fontSize: SIZES.fontMd, color: COLORS.white, fontWeight: FONT_WEIGHT.bold },
+
+  // Delete modal extras
+  deleteWarningStrip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#FEF3C7', borderRadius: SIZES.radiusSm,
+    paddingHorizontal: SIZES.md, paddingVertical: SIZES.sm,
+    marginBottom: SIZES.lg, width: '100%',
+  },
+  deleteWarningText: {
+    fontSize: SIZES.fontXs, color: '#B45309',
+    fontWeight: FONT_WEIGHT.semibold,
+  },
+  deletePassWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: COLORS.gray100,
+    borderRadius: SIZES.radiusMd,
+    borderWidth: 1, borderColor: COLORS.gray200,
+    marginBottom: SIZES.xl, width: '100%', height: 50,
+  },
+  deletePassInput: {
+    flex: 1, paddingHorizontal: SIZES.sm,
+    fontSize: SIZES.fontSm, color: COLORS.gray900,
+    fontWeight: FONT_WEIGHT.medium,
   },
 });

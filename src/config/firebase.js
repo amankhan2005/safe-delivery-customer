@@ -1,12 +1,14 @@
+/**
+ * Firebase config for the Customer App.
+ *
+ * Phone Auth (FirebasePhoneAuthProvider, signInWithCredential) has been
+ * REMOVED — phone OTP is now handled by the backend via Twilio SMS.
+ *
+ * Firebase is kept for:
+ *  - FCM push notifications (via firebase/messaging)
+ *  - Any analytics / crashlytics usage
+ */
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import {
-  initializeAuth,
-  getAuth,
-  getReactNativePersistence,
-  PhoneAuthProvider,
-  signInWithCredential,
-} from 'firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey:            'AIzaSyAAQ7saVI5BoQNtgKCv0J7nb_p76Y2Py-o',
@@ -18,33 +20,12 @@ const firebaseConfig = {
 };
 
 let app;
-let auth;
 
 try {
-  // Prevent duplicate app initialization on hot reload / fast refresh
-  if (getApps().length === 0) {
-    app = initializeApp(firebaseConfig);
-    // Only call initializeAuth on a fresh app instance
-    auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
-  } else {
-    // App already initialized — reuse existing instance + auth
-    app  = getApp();
-    auth = getAuth(app);
-  }
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 } catch (e) {
-  // Log initialization errors so they are visible in Metro / device logs
-  console.log('[Firebase] Initialization error:', e?.message || e);
-
-  // Last-resort fallback: if initializeAuth threw but the app exists, try getAuth
-  try {
-    if (!app)  app  = getApp();
-    if (!auth) auth = getAuth(app);
-  } catch (fallbackErr) {
-    console.log('[Firebase] Fallback getAuth error:', fallbackErr?.message || fallbackErr);
-  }
+  console.warn('[Firebase Customer] Init error:', e?.message);
+  try { app = getApp(); } catch (_) {}
 }
 
-export { auth, PhoneAuthProvider, signInWithCredential };
 export default app;
